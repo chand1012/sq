@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 
 	_ "github.com/glebarez/go-sqlite"
@@ -20,6 +21,19 @@ func createTempDB() (*sql.DB, string, error) {
 	}
 
 	return db, tmpFile.Name(), nil
+}
+
+// check if the file is a valid sqlite db
+func IsValidDB(fileName string) bool {
+	db, err := sql.Open("sqlite", fileName)
+	if err != nil {
+		return false
+	}
+	defer db.Close()
+
+	// try to query the db
+	_, err = db.Query("SELECT * FROM sqlite_master")
+	return err == nil
 }
 
 // load a sql file from bytes
@@ -44,6 +58,9 @@ func LoadStdin(bytes []byte) (*sql.DB, string, error) {
 }
 
 func LoadFile(fileName string) (*sql.DB, string, error) {
+	if !IsValidDB(fileName) {
+		return nil, "", errors.New("file is not a valid SQLite database")
+	}
 	db, err := sql.Open("sqlite", fileName)
 	if err != nil {
 		return nil, fileName, err

@@ -80,6 +80,7 @@ func run(cmd *cobra.Command, args []string) {
 		log.Debugf("Input file path: %s", inputFilePath)
 		d, _, err = db.LoadFile(inputFilePath)
 		if err != nil {
+			log.Debug("Input file is not a SQLite database, reading as a regular file")
 			file, err := os.ReadFile(inputFilePath)
 			if err != nil {
 				logger.HandlePanic(log, err, verbose)

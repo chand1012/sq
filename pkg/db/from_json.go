@@ -44,8 +44,8 @@ func FromJSON(b []byte, tableName string) (*sql.DB, string, error) {
 
 	columns, types := utils.BreakOutMap(typeMap)
 
-	// preprocess the column names
-	columns = processColumnNames(columns)
+	// // preprocess the column names
+	// columns = processColumnNames(columns)
 
 	createQuery := genCreateTableQuery(tableName, columns, types)
 
