@@ -4,7 +4,7 @@ func genCreateTableQuery(tableName string, headers []string, columnTypes []strin
 	var createTableQuery string
 	createTableQuery = "CREATE TABLE " + tableName + " ("
 	for i, header := range headers {
-		createTableQuery += header + " " + columnTypes[i]
+		createTableQuery += "'" + header + "' " + columnTypes[i]
 		if i != len(headers)-1 {
 			createTableQuery += ", "
 		}
@@ -17,7 +17,7 @@ func genInsertQuery(tableName string, headers []string) string {
 	var insertQuery string
 	insertQuery = "INSERT INTO " + tableName + " ("
 	for i, header := range headers {
-		insertQuery += header
+		insertQuery += "'" + header + "'"
 		if i != len(headers)-1 {
 			insertQuery += ", "
 		}

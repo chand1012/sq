@@ -5,13 +5,15 @@ import (
 	"database/sql"
 	"encoding/csv"
 
-	"github.com/chand1012/sq/pkg/utils"
 	_ "github.com/glebarez/go-sqlite"
+
+	"github.com/chand1012/sq/pkg/constants"
+	"github.com/chand1012/sq/pkg/utils"
 )
 
 func FromCSV(b []byte, tableName string) (*sql.DB, string, error) {
 	if tableName == "" {
-		tableName = "sq_table"
+		tableName = constants.TableName
 	}
 	// create a new temp database
 	db, tempName, err := createTempDB()
@@ -26,6 +28,8 @@ func FromCSV(b []byte, tableName string) (*sql.DB, string, error) {
 	if err != nil {
 		return nil, tempName, err
 	}
+	// preprocess the column names
+	headers = processColumnNames(headers)
 	// also get the first row for type inference
 	firstRow, err := csvReader.Read()
 	if err != nil {

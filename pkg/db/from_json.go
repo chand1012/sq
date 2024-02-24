@@ -3,19 +3,17 @@ package db
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 
-	"github.com/chand1012/sq/pkg/utils"
 	_ "github.com/glebarez/go-sqlite"
+
+	"github.com/chand1012/sq/pkg/constants"
+	"github.com/chand1012/sq/pkg/utils"
 )
 
 func FromJSON(b []byte, tableName string) (*sql.DB, string, error) {
-	if !utils.IsJSONArray(b) {
-		return nil, "", errors.New("json must be an array of objects")
-	}
 
 	if tableName == "" {
-		tableName = "sq_table"
+		tableName = constants.TableName
 	}
 
 	db, tempName, err := createTempDB()
@@ -45,6 +43,9 @@ func FromJSON(b []byte, tableName string) (*sql.DB, string, error) {
 	}
 
 	columns, types := utils.BreakOutMap(typeMap)
+
+	// preprocess the column names
+	columns = processColumnNames(columns)
 
 	createQuery := genCreateTableQuery(tableName, columns, types)
 

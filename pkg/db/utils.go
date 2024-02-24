@@ -1,6 +1,11 @@
 package db
 
-import "strconv"
+import (
+	"database/sql"
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 func guessType(s string) string {
 	// First, try to parse it as an integer
@@ -27,4 +32,34 @@ func reflectType(v any) string {
 	default:
 		return "TEXT"
 	}
+}
+
+// makes the column names all lowercase and replaces spaces with underscores
+func processColumnNames(columnNames []string) []string {
+	var processedColumnNames []string
+	for _, name := range columnNames {
+		processedColumnNames = append(processedColumnNames, strings.ReplaceAll(strings.ToLower(name), " ", "_"))
+	}
+	return processedColumnNames
+}
+
+func GetColumnNames(db *sql.DB, tableName string) ([]string, error) {
+	// Build the query to retrieve column names
+	query := "SELECT * FROM '" + tableName + "' LIMIT 1"
+
+	// Execute the query
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error querying column names: %w", err)
+	}
+	defer rows.Close()
+
+	// Extract and print each column name
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("error getting column names: %w", err)
+	}
+
+	// Return the column names
+	return columns, nil
 }

@@ -5,40 +5,39 @@ package cmd
 
 import (
 	"database/sql"
+	"errors"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/chand1012/sq/pkg/constants"
 	"github.com/chand1012/sq/pkg/db"
 	"github.com/chand1012/sq/pkg/file_types"
+	"github.com/chand1012/sq/pkg/logger"
 	"github.com/chand1012/sq/pkg/utils"
 )
+
+var log = logger.DefaultLogger
 
 var inputFilePath string
 var tableName string
 var quiet bool
-var outputFormat string // csv, json, jsonl
+var outputFormat string // csv, json, jsonl, sqlite
 var outputFilePath string
+var columnNames bool
+var verbose bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "sq",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
+	Use:    "sq",
+	Short:  "Convert and query JSON, JSONL, CSV, and SQLite with ease!",
+	Long:   `Like jq, but for SQL! Simply pipe in your data or specify a file and run your SQL queries!`,
 	Run:    run,
-	Args:   cobra.ExactArgs(1),
+	Args:   cobra.MaximumNArgs(1),
 	PreRun: prerun,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -47,20 +46,13 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.sq.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	rootCmd.Flags().StringVarP(&inputFilePath, "input", "i", "", "input file path")
+	rootCmd.Flags().StringVarP(&inputFilePath, "read", "r", "", "input file path")
 	rootCmd.Flags().StringVarP(&tableName, "table", "t", "", "table name")
-	rootCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "execute the query and exit without printing anything")
-	rootCmd.Flags().StringVarP(&outputFormat, "format", "f", "csv", "output format. csv, json, jsonl")
+	rootCmd.Flags().StringVarP(&outputFormat, "format", "f", "", "output format. csv, json, jsonl")
 	rootCmd.Flags().StringVarP(&outputFilePath, "output", "o", "", "output file path")
+	rootCmd.Flags().BoolVarP(&columnNames, "columns", "c", false, "print the columns names and exit")
+	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "print verbose output. Prints full stack trace for debugging.")
+	rootCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "execute the query and exit without printing anything")
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -82,7 +74,7 @@ func run(cmd *cobra.Command, args []string) {
 		if err != nil {
 			file, err := os.ReadFile(inputFilePath)
 			if err != nil {
-				panic(err)
+				logger.HandlePanic(log, err, verbose)
 			}
 			input = file
 		}
@@ -90,13 +82,17 @@ func run(cmd *cobra.Command, args []string) {
 		// check stdin
 		input, err = utils.ReadStdin()
 		if err != nil {
-			panic(err)
+			logger.HandlePanic(log, err, verbose)
 		}
 	}
 
 	if tableName == "" {
 		// if an error occurs it stays empty
-		tableName, _ = utils.GetTableName(query)
+		tableName, err = utils.GetTableName(query)
+		if err != nil {
+			log.Warn(err.Error())
+			tableName = constants.TableName
+		}
 	}
 
 	// if the database hasn't been loaded
@@ -105,7 +101,7 @@ func run(cmd *cobra.Command, args []string) {
 
 		// if input is empty, panic
 		if len(input) == 0 {
-			panic("no input")
+			logger.HandlePanic(log, errors.New("input is empty"), verbose)
 		}
 
 		switch file_types.Resolve(input) {
@@ -118,18 +114,28 @@ func run(cmd *cobra.Command, args []string) {
 		case file_types.CSV:
 			d, _, err = db.FromCSV(input, tableName)
 		default:
-			panic("unsupported file type")
+			logger.HandlePanic(log, errors.New("unsupported file type"), verbose)
 		}
 	}
 
 	if err != nil {
-		panic(err)
+		logger.HandlePanic(log, err, verbose)
+	}
+	defer d.Close()
+
+	if columnNames {
+		columns, err := db.GetColumnNames(d, tableName)
+		if err != nil {
+			logger.HandlePanic(log, err, verbose)
+		}
+		os.Stdout.WriteString(strings.Join(columns, ",") + "\n")
+		os.Exit(0)
 	}
 
 	// run the query
 	rows, err := d.Query(query)
 	if err != nil {
-		panic(err)
+		logger.HandlePanic(log, err, verbose)
 	}
 
 	if quiet {
@@ -143,27 +149,45 @@ func run(cmd *cobra.Command, args []string) {
 		content, err = db.RowsToJSONL(rows)
 	case "csv":
 		content, err = db.RowsToCSV(rows)
+	case "sqlite":
+		if outputFilePath == "" {
+			logger.HandlePanic(log, errors.New("output file path required for sqlite output"), verbose)
+		}
+		err = db.RowsToSQLite(rows, tableName, outputFilePath)
+		if err != nil {
+			logger.HandlePanic(log, err, verbose)
+		}
+		os.Exit(0)
 	default:
-		panic("unsupported output format")
+		logger.HandlePanic(log, errors.New("unsupported output format"), verbose)
 	}
 
 	if err != nil {
-		panic(err)
+		logger.HandlePanic(log, err, verbose)
 	}
 
 	if outputFilePath != "" {
 		err = os.WriteFile(outputFilePath, []byte(content), 0644)
 		if err != nil {
-			panic(err)
+			logger.HandlePanic(log, err, verbose)
 		}
 	} else {
 		os.Stdout.WriteString(content)
 	}
 }
 
+// sets up the logger and output format
 func prerun(cmd *cobra.Command, args []string) {
+	if verbose {
+		log = logger.VerboseLogger
+	}
+	if outputFilePath != "" && outputFormat == "" {
+		outputFormat = file_types.ResolveByPath(outputFilePath).String()
+	} else if outputFormat == "" {
+		outputFormat = "csv"
+	}
 	// if outputFormat is not one of json, jsonl, or csv, panic with an error
-	if outputFormat != "json" && outputFormat != "jsonl" && outputFormat != "csv" {
-		panic("unsupported output format")
+	if outputFormat != "json" && outputFormat != "jsonl" && outputFormat != "csv" && outputFormat != "sqlite" {
+		logger.HandlePanic(log, errors.New("unsupported output format"), verbose)
 	}
 }
