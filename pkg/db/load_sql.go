@@ -9,18 +9,12 @@ import (
 )
 
 func createTempDB() (*sql.DB, string, error) {
-	tmpFile, err := os.CreateTemp(os.TempDir(), "sq-*.sql")
-	if err != nil {
-		return nil, "", err
-	}
-	defer tmpFile.Close()
-
-	db, err := sql.Open("sqlite", tmpFile.Name())
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		return nil, "", err
 	}
 
-	return db, tmpFile.Name(), nil
+	return db, "", nil
 }
 
 // check if the file is a valid sqlite db
