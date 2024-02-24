@@ -23,7 +23,7 @@ go install github.com/chand1012/sq@latest
 Query some orders from a CSV file. Column names for CSV files are converted to lower case and spaces are replaced with underscores.
 
 ```bash
-$ sq -r orders.csv 'select country from sq where seller_amount > 20 not null;'
+$ sq -r orders.csv 'SELECT country FROM sq WHERE seller_amount > 20 NOT NULL;'
 United States of America
 United States of America
 United States of America
@@ -49,7 +49,7 @@ United States of America
 Download and query some JSONL datasets.
 
 ```bash
-$ curl https://raw.githubusercontent.com/TimeSurgeLabs/llm-finetuning/4e934ce602f34f62f4d803c40cd1e7825d216192/data/fingpt-sentiment-1k.jsonl | sq 'select * from sq where output = "positive";' -f jsonl > positive.jsonl
+$ curl https://raw.githubusercontent.com/TimeSurgeLabs/llm-finetuning/4e934ce602f34f62f4d803c40cd1e7825d216192/data/fingpt-sentiment-1k.jsonl | sq 'SELECT * FROM sq WHERE output = "positive";' -f jsonl > positive.jsonl
 ```
 
 You can even use it with `jq` !
