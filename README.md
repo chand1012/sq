@@ -12,6 +12,8 @@
 
 ## Installation
 
+Download a prebuilt binary from the [releases page](https://github.com/chand1012/sq/releases) and add it to your PATH, or use `go install` to install the latest version.
+
 ```bash
 go install github.com/chand1012/sq@latest
 ```
