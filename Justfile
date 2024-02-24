@@ -35,7 +35,11 @@ install: build
   rm -rf $GOPATH/bin/sq
   cp bin/sq $GOPATH/bin
 
-crossbuild:
+clean:
+  rm -rf bin
+  rm -rf dist
+
+crossbuild: clean
   #!/bin/bash
 
   # Set the name of the output binary and Go package
