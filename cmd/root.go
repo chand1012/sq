@@ -46,13 +46,13 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&inputFilePath, "read", "r", "", "input file path")
-	rootCmd.Flags().StringVarP(&tableName, "table", "t", "", "table name")
-	rootCmd.Flags().StringVarP(&outputFormat, "format", "f", "", "output format. csv, json, jsonl")
-	rootCmd.Flags().StringVarP(&outputFilePath, "output", "o", "", "output file path")
-	rootCmd.Flags().BoolVarP(&columnNames, "columns", "c", false, "print the columns names and exit")
-	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "print verbose output. Prints full stack trace for debugging.")
-	rootCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "execute the query and exit without printing anything")
+	rootCmd.Flags().StringVarP(&inputFilePath, "read", "r", "", "Input file path.")
+	rootCmd.Flags().StringVarP(&tableName, "table", "t", constants.TableName, "Table name for non-SQL input.")
+	rootCmd.Flags().StringVarP(&outputFormat, "format", "f", "", "Output format. Must be one of csv, json, jsonl, or sqlite")
+	rootCmd.Flags().StringVarP(&outputFilePath, "output", "o", "", "Output file path. Required for sqlite output.")
+	rootCmd.Flags().BoolVarP(&columnNames, "columns", "c", false, "Print the columns names and exit.")
+	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Print verbose output. Prints full stack trace for debugging.")
+	rootCmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Execute the query and exit without printing anything. For use in scripts where input file is an existing SQLite database.")
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -60,16 +60,24 @@ func run(cmd *cobra.Command, args []string) {
 	var d *sql.DB
 	// var filePath string
 	var content string
-	// always has one argument, which is a sql query
-	query := args[0]
+	var query string
 	// tread the input as bytes
 	// no matter where it came from
 	// or what it is
 	var input []byte
 
+	if len(args) > 0 {
+		query = args[0]
+	} else {
+		query = "SELECT * FROM " + tableName + ";"
+	}
+
+	log.Debugf("Query: %s", query)
+
 	// if the input file path is not empty
 	// load the bytes from the file
 	if inputFilePath != "" {
+		log.Debugf("Input file path: %s", inputFilePath)
 		d, _, err = db.LoadFile(inputFilePath)
 		if err != nil {
 			file, err := os.ReadFile(inputFilePath)
@@ -79,6 +87,7 @@ func run(cmd *cobra.Command, args []string) {
 			input = file
 		}
 	} else {
+		log.Debug("Reading from stdin")
 		// check stdin
 		input, err = utils.ReadStdin()
 		if err != nil {
@@ -86,14 +95,7 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if tableName == "" {
-		// if an error occurs it stays empty
-		tableName, err = utils.GetTableName(query)
-		if err != nil {
-			log.Warn(err.Error())
-			tableName = constants.TableName
-		}
-	}
+	log.Debugf("Read %d bytes from input", len(input))
 
 	// if the database hasn't been loaded
 	if d == nil {
@@ -104,7 +106,10 @@ func run(cmd *cobra.Command, args []string) {
 			logger.HandlePanic(log, errors.New("input is empty"), verbose)
 		}
 
-		switch file_types.Resolve(input) {
+		fType := file_types.Resolve(input)
+		log.Debugf("Resolved file type: %s", fType.String())
+
+		switch fType {
 		case file_types.SQLite:
 			d, _, err = db.LoadStdin(input)
 		case file_types.JSONL:
@@ -124,6 +129,7 @@ func run(cmd *cobra.Command, args []string) {
 	defer d.Close()
 
 	if columnNames {
+		log.Debug("Printing column names and exiting")
 		columns, err := db.GetColumnNames(d, tableName)
 		if err != nil {
 			logger.HandlePanic(log, err, verbose)
@@ -132,15 +138,19 @@ func run(cmd *cobra.Command, args []string) {
 		os.Exit(0)
 	}
 
+	log.Debug("Executing query")
 	// run the query
 	rows, err := d.Query(query)
 	if err != nil {
 		logger.HandlePanic(log, err, verbose)
 	}
 
+	// if quiet is true, exit without printing anything
 	if quiet {
 		os.Exit(0)
 	}
+
+	log.Debugf("Outputting rows to format %s", outputFormat)
 
 	switch outputFormat {
 	case "json":
@@ -167,6 +177,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	if outputFilePath != "" {
+		log.Debugf("Writing to file: %s", outputFilePath)
 		err = os.WriteFile(outputFilePath, []byte(content), 0644)
 		if err != nil {
 			logger.HandlePanic(log, err, verbose)
@@ -181,6 +192,7 @@ func prerun(cmd *cobra.Command, args []string) {
 	if verbose {
 		log = logger.VerboseLogger
 	}
+	log.Debug("Resolving output format")
 	if outputFilePath != "" && outputFormat == "" {
 		outputFormat = file_types.ResolveByPath(outputFilePath).String()
 	} else if outputFormat == "" {
@@ -190,4 +202,5 @@ func prerun(cmd *cobra.Command, args []string) {
 	if outputFormat != "json" && outputFormat != "jsonl" && outputFormat != "csv" && outputFormat != "sqlite" {
 		logger.HandlePanic(log, errors.New("unsupported output format"), verbose)
 	}
+	log.Debugf("Output format: %s", outputFormat)
 }

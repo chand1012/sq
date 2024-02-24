@@ -5,7 +5,6 @@ go 1.22.0
 require (
 	github.com/charmbracelet/log v0.3.1
 	github.com/glebarez/go-sqlite v1.22.0
-	github.com/krasun/gosqlparser v1.0.5
 	github.com/spf13/cobra v1.8.0
 )
 
