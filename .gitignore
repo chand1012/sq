@@ -31,3 +31,4 @@ dist
 *.jsonl
 *.json
 *.csv
+**.DS_Store**
