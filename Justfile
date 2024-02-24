@@ -16,6 +16,17 @@ tidy:
 build:
   go build -ldflags "{{LD_FLAGS}}" -v -o bin/sq{{EXEC_EXT}}
 
+gen-test path prompt="Write unit tests for all functions in the given file.":
+  #!/bin/bash
+  NEW_FILE=$(echo {{path}} | sed 's/\.go/_test.go/')
+  otto edit $NEW_FILE -c {{path}} -g "{{prompt}}"
+
+add command:
+  cobra-cli add {{command}}
+
+test:
+  go test -v ./...
+
 cobra-docs:
   rm docs/*.md
   go run docs/gen_docs.go

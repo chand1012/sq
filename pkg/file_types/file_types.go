@@ -1,7 +1,8 @@
-package utils
+package file_types
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"unicode/utf8"
 )
@@ -42,4 +43,17 @@ func IsValidJSONL(b []byte) bool {
 		}
 	}
 	return true // All lines are valid JSON
+}
+
+func IsValidCSV(b []byte) bool {
+	if !utf8.Valid(b) {
+		return false
+	}
+	// Create a new reader to consume the byte slice as CSV
+	r := csv.NewReader(bytes.NewReader(b))
+
+	// Attempt to read all records to ensure the CSV format is correct
+	// We're not interested in the records themselves, just the format validation
+	_, err := r.ReadAll()
+	return err == nil
 }

@@ -7,8 +7,23 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 )
 
+func createTempDB() (*sql.DB, string, error) {
+	tmpFile, err := os.CreateTemp(os.TempDir(), "sq-*.sql")
+	if err != nil {
+		return nil, "", err
+	}
+	defer tmpFile.Close()
+
+	db, err := sql.Open("sqlite", tmpFile.Name())
+	if err != nil {
+		return nil, "", err
+	}
+
+	return db, tmpFile.Name(), nil
+}
+
 // load a sql file from bytes
-func LoadSQLFileFromBytes(bytes []byte) (*sql.DB, string, error) {
+func LoadStdin(bytes []byte) (*sql.DB, string, error) {
 	tmpFile, err := os.CreateTemp(os.TempDir(), "sq-*.sql")
 	if err != nil {
 		return nil, "", err
@@ -28,11 +43,11 @@ func LoadSQLFileFromBytes(bytes []byte) (*sql.DB, string, error) {
 	return db, tmpFile.Name(), nil
 }
 
-func LoadSQLFile(fileName string) (*sql.DB, error) {
+func LoadFile(fileName string) (*sql.DB, string, error) {
 	db, err := sql.Open("sqlite", fileName)
 	if err != nil {
-		return nil, err
+		return nil, fileName, err
 	}
 
-	return db, nil
+	return db, fileName, nil
 }
