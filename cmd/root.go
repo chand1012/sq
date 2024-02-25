@@ -127,6 +127,7 @@ func run(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.HandlePanic(log, err, verbose)
 	}
+	log.Debug("Loaded file")
 	defer d.Close()
 
 	if columnNames {

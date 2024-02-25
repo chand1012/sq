@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"encoding/json"
+	"reflect"
 
 	_ "github.com/glebarez/go-sqlite"
 
@@ -65,11 +66,23 @@ func FromJSON(b []byte, tableName string) (*sql.DB, string, error) {
 		var values []any
 		for _, column := range columns {
 			// if the column is not present in the record, insert a NULL
-			if record[column] == nil {
+			value := record[column]
+			if value == nil {
 				values = append(values, nil)
 				continue
 			}
-			values = append(values, record[column])
+			// Use reflect to determine if the type is a map or a slice
+			valType := reflect.TypeOf(value)
+			if valType.Kind() == reflect.Map || valType.Kind() == reflect.Slice {
+				// Marshal to JSON
+				jsonValue, err := json.Marshal(value)
+				if err != nil {
+					return nil, tempName, err
+				}
+				values = append(values, string(jsonValue))
+				continue // Continue to the next column after appending
+			}
+			values = append(values, value)
 		}
 		_, err = stmt.Exec(values...)
 		if err != nil {
