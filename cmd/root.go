@@ -122,6 +122,17 @@ func run(cmd *cobra.Command, args []string) {
 		default:
 			logger.HandlePanic(log, errors.New("unsupported file type"), verbose)
 		}
+
+		if outputFormat == "" {
+			outputFormat = fType.String()
+		} else {
+			switch outputFormat {
+			case "json", "jsonl", "csv", "sqlite":
+				// do nothing
+			default:
+				logger.HandlePanic(log, errors.New("unsupported output format"), verbose)
+			}
+		}
 	}
 
 	if err != nil {
@@ -194,15 +205,4 @@ func prerun(cmd *cobra.Command, args []string) {
 	if verbose {
 		log = logger.VerboseLogger
 	}
-	log.Debug("Resolving output format")
-	if outputFilePath != "" && outputFormat == "" {
-		outputFormat = file_types.ResolveByPath(outputFilePath).String()
-	} else if outputFormat == "" {
-		outputFormat = "csv"
-	}
-	// if outputFormat is not one of json, jsonl, or csv, panic with an error
-	if outputFormat != "json" && outputFormat != "jsonl" && outputFormat != "csv" && outputFormat != "sqlite" {
-		logger.HandlePanic(log, errors.New("unsupported output format"), verbose)
-	}
-	log.Debugf("Output format: %s", outputFormat)
 }

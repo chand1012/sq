@@ -81,8 +81,17 @@ func FromJSON(b []byte, tableName string) (*sql.DB, string, error) {
 				}
 				values = append(values, string(jsonValue))
 				continue // Continue to the next column after appending
+			} else if valType.Kind() == reflect.Bool {
+				// cast to bool
+				boolVal := value.(bool)
+				if boolVal {
+					values = append(values, "true")
+				} else {
+					values = append(values, "false")
+				}
+			} else {
+				values = append(values, value)
 			}
-			values = append(values, value)
 		}
 		_, err = stmt.Exec(values...)
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 func ToJSON(db *sql.DB, tableName string) (string, error) {
@@ -83,6 +84,26 @@ func RowsToJSON(rows *sql.Rows) (string, error) {
 		for i, col := range cols {
 			if scanValues[i] != nil {
 				rowMap[col] = scanValues[i]
+				// try to cast it to a string
+				if s, ok := scanValues[i].(string); ok {
+					rowMap[col] = s
+					// if the string starts and ends with either [] or {}
+					// then we need to attempt to unmarshal it
+					if (strings.HasPrefix(rowMap[col].(string), "[") && strings.HasSuffix(rowMap[col].(string), "]")) ||
+						(strings.HasPrefix(rowMap[col].(string), "{") && strings.HasSuffix(rowMap[col].(string), "}")) {
+						var v interface{}
+						err := json.Unmarshal([]byte(rowMap[col].(string)), &v)
+						if err == nil {
+							rowMap[col] = v
+						}
+					}
+					if rowMap[col] == "true" || rowMap[col] == "false" {
+						rowMap[col] = rowMap[col].(string) == "true"
+					}
+					if b, ok := rowMap[col].(bool); ok {
+						rowMap[col] = b
+					}
+				}
 			}
 		}
 
