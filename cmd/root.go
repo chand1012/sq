@@ -157,6 +157,7 @@ func run(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logger.HandlePanic(log, err, verbose)
 	}
+	defer rows.Close()
 
 	// if quiet is true, exit without printing anything
 	if quiet {
