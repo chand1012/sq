@@ -9,9 +9,6 @@ import (
 )
 
 func ToJSONL(db *sql.DB, tableName string) (string, error) {
-	// Create a buffer to hold the JSONL data
-	var buffer bytes.Buffer
-
 	// Query table data
 	query := fmt.Sprintf("SELECT * FROM %s", tableName)
 	rows, err := db.Query(query)
@@ -20,43 +17,7 @@ func ToJSONL(db *sql.DB, tableName string) (string, error) {
 	}
 	defer rows.Close()
 
-	// Get column information
-	cols, err := rows.Columns()
-	if err != nil {
-		return "", err
-	}
-
-	// Iterate through rows and write data as JSON lines
-	for rows.Next() {
-		// Scan row data
-		scanValues := make([]interface{}, len(cols))
-		scanPointers := make([]interface{}, len(cols))
-		for i := range scanValues {
-			scanPointers[i] = &scanValues[i]
-		}
-		err := rows.Scan(scanPointers...)
-		if err != nil {
-			return "", err
-		}
-
-		// Create a map to store row data
-		rowMap := make(map[string]interface{})
-		for i, col := range cols {
-			rowMap[col] = scanValues[i]
-		}
-
-		// Marshal row data to JSON
-		jsonData, err := json.Marshal(rowMap)
-		if err != nil {
-			return "", err
-		}
-
-		// Append JSON data with newline character
-		buffer.WriteString(string(jsonData))
-		buffer.WriteByte('\n')
-	}
-
-	return buffer.String(), nil
+	return RowsToJSONL(rows)
 }
 
 func RowsToJSONL(rows *sql.Rows) (string, error) {
